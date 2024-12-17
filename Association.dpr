@@ -1,0 +1,357 @@
+Program Association;
+
+uses
+  SysUtils,
+  Windows;
+
+Const
+  Alphabet = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя-';
+  Gender: array[1..3,1..4] of String =
+  ((' м.р.','ий','ый','ой'),(' ж.р.','ая','яя',''),('ср.р.','ое','ее',''));
+  Infinitive: array[1..5] of String = ('ть','ти','чь','ся','сь');
+
+Var
+  F : TextFile;
+  TempPlayer : Array of Integer;
+  Dictionary : Array of String;
+  TotalPlayer : Array of Array of Integer;
+  Words : Array of Array[1..4] of String;
+  Flag, IsCorrect : Boolean;
+  Round, CurrPlayer, Code, NumPlayers, OwnerPl, Score, IndMax, J,K,M, L, N, I, Temp, CurrentShift: Integer;
+  Str, Attempt, HiddenWord : String;
+
+  procedure clrscr;
+  var
+    hStdOut: HWND;
+    ScreenBufInfo: TConsoleScreenBufferInfo;
+    Coord1: TCoord;
+    z: Integer;
+  begin
+    hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
+    GetConsoleScreenBufferInfo(hStdOut, ScreenBufInfo);
+    for z := 1 to ScreenBufInfo.dwSize.Y do WriteLn;
+    Coord1.X := 0;
+    Coord1.Y := 0;
+    SetConsoleCursorPosition(hStdOut, Coord1);
+  end;
+
+Begin
+  //Ввод количества игроков и проверка корректности
+  Repeat
+    Write('Введите количество игроков (2-5): ');
+
+    ReadLn(Str);
+    WriteLn;
+
+    Val(Str, NumPlayers, Code);
+
+    //Проверка на корректность ввода
+    If Code <> 0 then
+      WriteLn('Ошибка! Некорректный символ на позиции ', Code);
+
+    If NumPlayers < 2 then
+    Begin
+      WriteLn('В игре участвует не менее 2 игроков.');
+      Code := 1;
+    End;
+
+    If NumPlayers > 5 then
+    Begin
+      WriteLn('В игре участвует не менее 2 игроков.');
+      Code := 1;
+    End;
+
+  Until Code = 0;
+
+  SetLength(TotalPlayer,2, NumPlayers);
+
+  //Заполнение массива индексами игроков
+  For I := 0 to NumPlayers - 1 do
+    TotalPlayer[1,I] := I;
+
+  SetLength(TempPlayer, NumPlayers);
+
+  //Заполнение массива словами из файла
+  if FileExists('Файл 1.txt') then
+  Begin
+    AssignFile(F,'Файл 1.txt', CP_UTF8);
+    Reset(F);
+
+    While (not EOF(F)) do
+    Begin
+      Readln(F,Str);
+      SetLength(Dictionary, Length(Dictionary) + 1);
+      Dictionary[Length(Dictionary) - 1] := Str;
+    End;
+
+    CloseFile(F);
+  End
+  Else
+    Writeln('Файл не найден');
+
+  //1 этап
+  Flag := True;
+  Round := 1;
+  While Flag do
+  Begin
+    Writeln(Round, ' раунд');
+    WriteLn;
+
+    //Заполнение массива словами из словаря
+    I := 0;
+    While (I < NumPlayers) do
+    Begin
+      SetLength(Words, NumPlayers);
+      if CurrentShift >= Length(Dictionary) then
+        CurrentShift := 0;
+
+      Words[I, 1] := Dictionary[CurrentShift];
+
+      inc(CurrentShift);
+      inc(I);
+    End;
+
+     //3 вопроса
+    For I := 0 to  NumPlayers - 1 do
+    Begin
+      WriteLn('Игрок ', I + 1,' , ваша очередь:');
+      WriteLn;
+
+      Writeln('Слово для ', I+1, ' игрока: ', Words[I,1]);
+      WriteLn;
+
+      HiddenWord := Copy(Words[I, 1], Length(Words[I, 1]) - 4, 5);
+
+      If HiddenWord = 'ср.р.' then
+         Delete(Words[I, 1], Length(Words[I, 1]) - 5, 5)
+      else
+         Delete(Words[I, 1], Length(Words[I, 1]) - 4, 5);
+
+      For M := 2 to 4 do
+      Begin
+
+        case M of
+          2: WriteLn('Придумайте 3 прилагательных к слову.');
+          3: WriteLn('Придумайте 3 глагола к слову и запишите их в инфинитиве. ');
+          4: WriteLn('Придумайте 3 существительных-ассоциации к слову и запишите их в И.п. и ед.ч.: ');
+        end;
+
+        For J := 1 to 3 do
+        Begin
+          Repeat
+            IsCorrect:= True;
+
+            Write('Запишите ', J,' слово: ');
+            Readln(Str);
+
+            If Length(Str) < 2 then
+            Begin
+              IsCorrect := False;
+              WriteLn('Слово должнно содержать минимум 2 символа. Введите заново:');
+            End;
+
+            K := 1;
+            While (K <= Length(Str)) and IsCorrect do
+            Begin
+              If Pos(Str[K], Alphabet) = 0 then   //Если не найден символ в алфавите
+              Begin
+                IsCorrect:= False;
+                WriteLn('Ошибка! Некорректный символ. Введите заново:');
+              End;
+
+              Inc(K);
+            End;
+
+            N := 2;
+            If M = 2 then
+              While IsCorrect and (N <= 4) do
+              Begin
+                For L := 1 to 3 do
+                  If Copy(Str, Length(Str) - 1, 2) = Gender[L, N] then
+                    If Gender[L, 1] <> HiddenWord then
+                    Begin
+                      IsCorrect := False;
+                      WriteLn('Слово содержит неправильное окончание. Введите заново:');
+                    End;
+
+                Inc(N);
+              End;
+
+            N := 1;
+            Code := 0;
+            If M = 3 then
+              While IsCorrect and (N <= 5) do
+              Begin
+                If Copy(Str, Length(Str) - 1, 2) = Infinitive[N] then
+                  Code := 1;
+
+                If (Code = 0) and (N = 5) then
+                Begin
+                  IsCorrect := False;
+                  WriteLn('Слово не записан в форме инфинитива. Введите заново:');
+                End;
+
+                Inc(N);
+              End;
+
+          Until IsCorrect;
+
+          Words[I, M] := Words[I, M] + Str;
+          If J <> 3 then
+              Words[I, M] := Words[I, M] + ', ';
+        End;
+
+        WriteLn;
+
+        If M = 4 then
+          ClrScr;
+      End;
+
+    End;
+
+    //2 этап
+    //Бессмысленное заполнение строки каждый раз
+    For I := 0 to NumPlayers do
+      Str := Str + IntToStr(I);
+
+    //Отгадывание слов(истинный 2 этап)
+    For CurrPlayer := 0 to NumPlayers-1 do
+    Begin
+      WriteLn;
+      Writeln('Угадывает ', CurrPlayer+1, ' игрок');
+
+      IsCorrect := False;
+      While not IsCorrect do
+      Begin
+        //Определение игрока(владельца слова), с которым играет текущий игрок
+        OwnerPl := Random(NumPlayers);
+
+        //Проверка, может ли текущий игрок играть с этим игроком
+        If (Pos(IntToStr(OwnerPl),Str) <> 0) and (OwnerPl<>CurrPlayer) then
+        Begin
+          IsCorrect := True;
+          Delete(Str, OwnerPl, 1);
+        End;
+
+      End;
+
+      //Угадывание             //+Проверка
+
+	    IsCorrect:= False;
+      I := 2;
+      Score := 3;
+      While (not IsCorrect) and (I <= 4) do
+      Begin
+        //Вывод 3 слов
+        Case I of
+          2: Writeln('Прилагательные:');
+          3: Writeln('Глаголы:');
+          4: Writeln('Существительные:');
+        end;
+
+        Writeln(Words[OwnerPl, I]);
+
+        //Ввод догадки
+        Writeln('Введите вашу догадку:');
+        Readln(Attempt);
+
+        If Pos(Attempt[1], Alphabet) > 33 then
+          Attempt[1] := Alphabet[Pos(Attempt[1], Alphabet) - 33];
+
+
+        //Проверка, угадано ли слово
+        If Attempt = Words[OwnerPl, 1] then
+        Begin
+          IsCorrect:=True;
+          TempPlayer[CurrPlayer] := TempPlayer[CurrPlayer] + Score;
+        End
+        else
+          Dec(Score);
+
+        //Проверка, нужно ли начислять/отнимать балл загадывающему
+        if I = 4 then
+        Begin
+          if IsCorrect then
+            TempPlayer[OwnerPl] := TempPlayer[OwnerPl] + 1
+          else
+            TempPlayer[OwnerPl] := TempPlayer[OwnerPl] - 1;
+        End;
+
+        Inc(I);
+      End;
+      ClrScr;
+    End;
+
+    Writeln('Результаты в текущем раунде:');
+
+    For I := 0 to NumPlayers - 1 do
+    Begin
+      //Вывод результатов в текущем раунде
+      Writeln(I+1, 'Игрок - ', TempPlayer[I],' баллов');
+      //Занесение его в главный массив очков
+      TotalPlayer[0,I] := TotalPlayer[0,I] + TempPlayer[I];
+
+      //Проверка на победителя
+      If TotalPlayer[0,I] >= 15 then
+       Flag := False;
+
+      //Очищение массива текущего результата игроков
+      TempPlayer[I] := 0;
+
+      //Очищение массива слов для текущего раунда
+      Words := Nil;
+    End;
+
+    If Flag then
+    Begin
+      //Вывод промежуточного итога игры
+      Writeln('Промежуточный итог игры:');
+
+      For I := 0 to NumPlayers - 1 do
+        Writeln(I+1, 'Игрок - ', TotalPlayer[0,I],' баллов');
+    End;
+
+    Inc(Round);
+    ClrScr;
+  End;
+
+  //Сортировка исходного массива по убыванию
+  For I := 0 to NumPlayers - 2 do
+  Begin
+    IndMax := I;
+
+    For J := I+1 to NumPlayers - 1 do
+      If TotalPlayer[0,J] > TotalPlayer[0,IndMax] then
+        IndMax := J;
+
+    //Два элемента первой строки массива TotalPlayers меняются местами
+    Temp := TotalPlayer[0,I] ;
+    TotalPlayer[0,I] := TotalPlayer[0,IndMax];
+    TotalPlayer[0,IndMax] := Temp;
+
+    //Два элемента второй строки массива TotalPlayers меняются местами
+    Temp := TotalPlayer[1,I] ;
+    TotalPlayer[1,I] := TotalPlayer[1,IndMax];
+    TotalPlayer[1,IndMax] := Temp;
+  End;
+
+  Writeln('Результат игры:');
+
+  Writeln('Победители: ');
+  I:=0;
+  while TotalPlayer[0,I]>=15 do
+  Begin
+    Writeln(TotalPlayer[1,I]+1, 'Игрок с баллом: ', TotalPlayer[0,I]);
+    Inc(i);
+  End;
+
+  Writeln('Не победители, но все равно молодцы: ');
+  while i<=NumPlayers-1 do
+  Begin
+    Writeln(TotalPlayer[1,I]+1, 'Игрок с баллом: ', TotalPlayer[0,I]);
+    Inc(i);
+  End;
+
+  Readln;
+End.
+
