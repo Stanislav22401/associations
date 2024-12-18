@@ -27,16 +27,16 @@ Var
 }
 
 //Процедура очистки консоли
-Procedure clrscr;
-Var
-  Cursor: COORD;
-  R: Cardinal;
-Begin
-  R := 300;
-  Cursor.X := 0;
-  Cursor.Y := 0;
-  FillConsoleOutputCharacter(GetStdHandle(STD_OUTPUT_HANDLE), ' ', 80 * R, Cursor, R);
-  SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), Cursor);
+procedure clrscr;
+var
+  cursor: COORD;
+  r: cardinal;
+begin
+  r := 300;
+  cursor.X := 0;
+  cursor.Y := 0;
+  FillConsoleOutputCharacter(GetStdHandle(STD_OUTPUT_HANDLE), ' ', 80 * r, cursor, r);
+  SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), cursor);
 end;
 
 Begin
@@ -85,6 +85,7 @@ Begin
   SetLength(TotalPlayer,2, NumPlayers);
   SetLength(TempPlayer, NumPlayers);
 
+
   //Заполнение массива индексами игроков
   For I := 0 to NumPlayers - 1 do
     TotalPlayer[1,I] := I;
@@ -122,7 +123,7 @@ Begin
       //Определение хода и слова игрока
       WriteLn('Игрок ', I + 1,', ваша очередь:');
       WriteLn;
-      Writeln('Слово для ', I + 1, ' игрока: ', Words[I,1]);
+      Writeln('Слово для ', I + 1, ' игрока: ', Words[I, 1]);
       WriteLn;
 
       //Записывание рода слова в HiddenWord
@@ -130,7 +131,7 @@ Begin
 
       //Удаление рода слова из Words[I, 1]
       If HiddenWord = 'ср.р.' then
-         Delete(Words[I, 1], Length(Words[I, 1]) - 5, 6)
+         Delete(Words[I, 1], Length(Words[I, 1]) - 5, 5)
       else
          Delete(Words[I, 1], Length(Words[I, 1]) - 4, 5);
 
@@ -219,6 +220,9 @@ Begin
     End;
 
     //2 этап
+    //Бессмысленное заполнение строки каждый раз
+    For I := 0 to NumPlayers do
+      Input := Input + IntToStr(I);
 
     //Отгадывание слов(истинный 2 этап)
     For CurrPlayer := 0 to NumPlayers - 1 do
@@ -226,10 +230,19 @@ Begin
       WriteLn;
       Writeln('Угадывает ', CurrPlayer + 1, ' игрок');
 
-      If CurrPlayer <> NumPlayers - 1 then
-        OwnerPl := CurrPlayer + 1
-      else
-        OwnerPl := 0;
+      IsCorrect := False;
+      While not IsCorrect do
+      Begin
+        //Определение игрока(владельца слова), с которым играет текущий игрок
+        OwnerPl := Random(NumPlayers);
+
+        //Проверка, может ли текущий игрок играть с этим игроком
+        If (Pos(IntToStr(OwnerPl), Input) <> 0) and (OwnerPl <> CurrPlayer) then
+        Begin
+          IsCorrect := True;
+          Delete(Input, OwnerPl, 1);
+        End;
+      End;
 
       //Угадывание
       //+Проверка
@@ -247,16 +260,9 @@ Begin
 
         Writeln(Words[OwnerPl, I]);
 
-        //Ввод игроком догадки
-        Repeat
-          Write('Введите вашу догадку: ');
-          Readln(Attempt);
-          //Проверка на количество символов в слове
-          If Length(Attempt) < 2 then
-          Begin
-            WriteLn('Слово должнно содержать минимум 2 символа.');
-          End
-        Until Length(Attempt) >= 2;
+        //Ввод догадки
+        Writeln('Введите вашу догадку:');
+        Readln(Attempt);
 
         If Pos(Attempt[1], Alphabet) > 33 then
           Attempt[1] := Alphabet[Pos(Attempt[1], Alphabet) - 33];
@@ -266,30 +272,20 @@ Begin
         Begin
           IsCorrect:=True;
           TempPlayer[CurrPlayer] := TempPlayer[CurrPlayer] + Score;
-          Writeln('Слово угадано!');
-          Writeln('Нажмите Enter, чтобы продолжить...');
-          Readln;
         End
         else
           Dec(Score);
 
         //Проверка, нужно ли начислять/отнимать балл загадывающему
-        If I = 4 then
+        if I = 4 then
         Begin
-          If IsCorrect then
+          if IsCorrect then
             TempPlayer[OwnerPl] := TempPlayer[OwnerPl] + 1
           else
-          Begin
             TempPlayer[OwnerPl] := TempPlayer[OwnerPl] - 1;
-            Writeln('Слово не угадано!');
-            Writeln('Нажмите Enter, чтобы продолжить');
-            Readln;
-          End;
         End;
-
         Inc(I);
       End;
-
       ClrScr;
     End;
 
@@ -299,7 +295,7 @@ Begin
     For I := 0 to NumPlayers - 1 do
     Begin
       //Вывод результатов в текущем раунде
-      Writeln('  ', I + 1, ' Игрок c баллом: ', TempPlayer[I]);
+      Writeln('  ', I + 1, ' Игрок - ', TempPlayer[I],' баллов');
 
       //Занесение его в главный массив очков
       TotalPlayer[0,I] := TotalPlayer[0,I] + TempPlayer[I];
@@ -321,13 +317,12 @@ Begin
       Writeln('Промежуточный итог игры:');
 
       For I := 0 to NumPlayers - 1 do
-        Writeln('  ', I + 1, ' Игрок с баллом: ', TotalPlayer[0,I]);
+        Writeln('  ', I + 1, ' Игрок - ', TotalPlayer[0,I],' баллов');
     End;
 
-    Inc(Round);
-    WriteLn;
-    WriteLn('Нажмите Enter, чтобы продолжить...');
+    Write('Нажмите Enter, чтобы продолжить...');
     ReadLn;
+    Inc(Round);
     ClrScr;
   End;
 
@@ -335,7 +330,6 @@ Begin
   For I := 0 to NumPlayers - 2 do
   Begin
     IndMax := I;
-
     For J := I+1 to NumPlayers - 1 do
       If TotalPlayer[0,J] > TotalPlayer[0,IndMax] then
         IndMax := J;
@@ -357,14 +351,14 @@ Begin
   I:=0;
   while TotalPlayer[0,I]>=15 do
   Begin
-    Writeln(TotalPlayer[1,I]+1, ' Игрок с баллом: ', TotalPlayer[0,I]);
+    Writeln(TotalPlayer[1,I]+1, 'Игрок с баллом: ', TotalPlayer[0,I]);
     Inc(I);
   End;
 
   Writeln('Не победители, но все равно молодцы: ');
   while I <= NumPlayers - 1 do
   Begin
-    Writeln(TotalPlayer[1,I] + 1, ' Игрок с баллом: ', TotalPlayer[0,I]);
+    Writeln(TotalPlayer[1,I] + 1, 'Игрок с баллом: ', TotalPlayer[0,I]);
     Inc(I);
   End;
 

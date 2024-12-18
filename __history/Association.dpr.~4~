@@ -19,25 +19,26 @@ Var
   Flag, IsCorrect : Boolean;
   Round, CurrPlayer, Code, NumPlayers, OwnerPl, Score, IndMax, CurrentShift: Integer;
   J, K, M, L, N, I, Temp: Integer;
-  Input, Attempt, HiddenWord : String;
+  Str, Attempt, HiddenWord : String;
   FileAvailability: Boolean;
 {
   FileAvailability - переменная для проверки наличия словаря
-  CurrentShift - текущее количество использованных в словаре слов
 }
 
-//Процедура очистки консоли
 Procedure clrscr;
-Var
-  Cursor: COORD;
-  R: Cardinal;
-Begin
-  R := 300;
-  Cursor.X := 0;
-  Cursor.Y := 0;
-  FillConsoleOutputCharacter(GetStdHandle(STD_OUTPUT_HANDLE), ' ', 80 * R, Cursor, R);
-  SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), Cursor);
-end;
+  Var
+    hStdOut: HWND;
+    ScreenBufInfo: TConsoleScreenBufferInfo;
+    Coord1: TCoord;
+    z: Integer;
+  Begin
+    hStdOut := GetStdHandle(STD_OUTPUT_HANDLE);
+    GetConsoleScreenBufferInfo(hStdOut, ScreenBufInfo);
+    for z := 1 to ScreenBufInfo.dwSize.Y do WriteLn;
+    Coord1.X := 0;
+    Coord1.Y := 0;
+    SetConsoleCursorPosition(hStdOut, Coord1);
+  End;
 
 Begin
   //Проверка на наличие файла 'Cловарь.txt' в папке с игрой
@@ -47,19 +48,19 @@ Begin
     If Not(FileExists('Словарь.txt')) then
     Begin
       WriteLn('Словарь не найден');
-      WriteLn('Поместите файл ''Словарь.txt'' в папку с игрой');
+      WriteLn('Поместите файл ''Словарь.txt''в папку с игрой');
       WriteLn('Повторить попытку...');
       ReadLn;
       FileAvailability := False;
     End;
-  Until FileAvailability;
+  Until Not(FileExists('Словарь.txt'));
 
   //Ввод количества игроков и проверка корректности
   Repeat
     Write('Введите количество игроков (2-5): ');
-    ReadLn(Input);
+    ReadLn(Str);
     WriteLn;
-    Val(Input, NumPlayers, Code);
+    Val(Str, NumPlayers, Code);
 
     //Проверка на корректность ввода
     If Code <> 0 then
@@ -75,165 +76,187 @@ Begin
 
       If NumPlayers > 5 then
       Begin
-        WriteLn('В игре участвует не более 5 игроков.');
+        WriteLn('В игре участвует не менее 2 игроков.');
         Code := 1;
       End;
     End;
   Until Code = 0;
 
-  //Инициализация массивов, зависящих от количества игроков
   SetLength(TotalPlayer,2, NumPlayers);
-  SetLength(TempPlayer, NumPlayers);
 
   //Заполнение массива индексами игроков
   For I := 0 to NumPlayers - 1 do
     TotalPlayer[1,I] := I;
 
-  //Заполнение массива Dictionary словами из файла
-  AssignFile(DictionaryFile,'Словарь.txt', CP_UTF8);
-  Reset(DictionaryFile);
-  While (not EOF(DictionaryFile)) do
-  Begin
-    Readln(DictionaryFile, Input);
-    SetLength(Dictionary, Length(Dictionary) + 1);
-    Dictionary[Length(Dictionary) - 1] := Input;
-  End;
-  CloseFile(DictionaryFile);
+  SetLength(TempPlayer, NumPlayers);
+
+
+  //Заполнение массива словами из файла
+
+
+    AssignFile(DictionaryFile,'Словарь.txt', CP_UTF8);
+    Reset(DictionaryFile);
+
+    While (not EOF(DictionaryFile)) do
+    Begin
+      Readln(DictionaryFile,Str);
+      SetLength(Dictionary, Length(Dictionary) + 1);
+      Dictionary[Length(Dictionary) - 1] := Str;
+    End;
+
+    CloseFile(DictionaryFile);
+
+
 
   //1 этап
   Flag := True;
   Round := 1;
-  CurrentShift := 0;
   While Flag do
   Begin
     Writeln(Round, ' раунд');
     WriteLn;
 
-    //Ввод 3 слов на 3 части речи каждым игроком
+    //Заполнение массива словами из словаря
+    I := 0;
+    While (I < NumPlayers) do
+    Begin
+      SetLength(Words, NumPlayers);
+      if CurrentShift >= Length(Dictionary) then
+        CurrentShift := 0;
+
+      Words[I, 1] := Dictionary[CurrentShift];
+
+      inc(CurrentShift);
+      inc(I);
+    End;
+
+     //3 вопроса
     For I := 0 to  NumPlayers - 1 do
     Begin
-      //Добавление слова в массив
-      SetLength(Words, NumPlayers);
-      If CurrentShift >= Length(Dictionary) then
-        CurrentShift := 0;
-      Words[I, 1] := Dictionary[CurrentShift];
-      Inc(CurrentShift);
-
-      //Определение хода и слова игрока
-      WriteLn('Игрок ', I + 1,', ваша очередь:');
-      WriteLn;
-      Writeln('Слово для ', I + 1, ' игрока: ', Words[I,1]);
+      WriteLn('Игрок ', I + 1,' , ваша очередь:');
       WriteLn;
 
-      //Записывание рода слова в HiddenWord
+      Writeln('Слово для ', I+1, ' игрока: ', Words[I,1]);
+      WriteLn;
+
       HiddenWord := Copy(Words[I, 1], Length(Words[I, 1]) - 4, 5);
 
-      //Удаление рода слова из Words[I, 1]
       If HiddenWord = 'ср.р.' then
-         Delete(Words[I, 1], Length(Words[I, 1]) - 5, 6)
+         Delete(Words[I, 1], Length(Words[I, 1]) - 5, 5)
       else
          Delete(Words[I, 1], Length(Words[I, 1]) - 4, 5);
 
-      //Ввод 3 слов на 3 части речи
       For M := 2 to 4 do
       Begin
-        //Указание части речи, которую надо вводить
-        Case M of
+
+        case M of
           2: WriteLn('Придумайте 3 прилагательных к слову.');
           3: WriteLn('Придумайте 3 глагола к слову и запишите их в инфинитиве. ');
           4: WriteLn('Придумайте 3 существительных-ассоциации к слову и запишите их в И.п. и ед.ч.: ');
-        End;
+        end;
 
-        //Ввод игроком 3 слов на определённую часть речи
         For J := 1 to 3 do
         Begin
           Repeat
-            IsCorrect := True;
+            IsCorrect:= True;
 
-            //Ввод игроком слова
             Write('Запишите ', J,' слово: ');
-            Readln(Input);
+            Readln(Str);
 
-            //Проверка на количество символов в слове >= 2
-            If Length(Input) < 2 then
+            If Length(Str) < 2 then
             Begin
               IsCorrect := False;
               WriteLn('Слово должнно содержать минимум 2 символа. Введите заново:');
             End;
 
-            //Проверка на наличие в слове недопустимых символов
             K := 1;
-            While (K <= Length(Input)) and IsCorrect do
+            While (K <= Length(Str)) and IsCorrect do
             Begin
-              If Pos(Input[K], Alphabet) = 0 then
+              If Pos(Str[K], Alphabet) = 0 then   //Если не найден символ в алфавите
               Begin
                 IsCorrect:= False;
                 WriteLn('Ошибка! Некорректный символ. Введите заново:');
               End;
+
               Inc(K);
             End;
 
-            //Проверка на правильность окончания прилагательного
             N := 2;
             If M = 2 then
               While IsCorrect and (N <= 4) do
               Begin
                 For L := 1 to 3 do
-                  If Copy(Input, Length(Input) - 1, 2) = Gender[L, N] then
+                  If Copy(Str, Length(Str) - 1, 2) = Gender[L, N] then
                     If Gender[L, 1] <> HiddenWord then
                     Begin
                       IsCorrect := False;
                       WriteLn('Слово содержит неправильное окончание. Введите заново:');
                     End;
+
                 Inc(N);
               End;
 
-            //Проверка на ввод инфинитива
             N := 1;
             Code := 0;
             If M = 3 then
               While IsCorrect and (N <= 5) do
               Begin
-                If Copy(Input, Length(Input) - 1, 2) = Infinitive[N] then
+                If Copy(Str, Length(Str) - 1, 2) = Infinitive[N] then
                   Code := 1;
+
                 If (Code = 0) and (N = 5) then
                 Begin
                   IsCorrect := False;
                   WriteLn('Слово не записан в форме инфинитива. Введите заново:');
                 End;
+
                 Inc(N);
               End;
+
           Until IsCorrect;
 
-          //Запись введённого слова в массив
-          Words[I, M] := Words[I, M] + Input;
+          Words[I, M] := Words[I, M] + Str;
           If J <> 3 then
               Words[I, M] := Words[I, M] + ', ';
         End;
+
         WriteLn;
 
-        //Очистка консоли, если введены все слова
         If M = 4 then
           ClrScr;
       End;
+
     End;
 
     //2 этап
+    //Бессмысленное заполнение строки каждый раз
+    For I := 0 to NumPlayers do
+      Str := Str + IntToStr(I);
 
     //Отгадывание слов(истинный 2 этап)
-    For CurrPlayer := 0 to NumPlayers - 1 do
+    For CurrPlayer := 0 to NumPlayers-1 do
     Begin
       WriteLn;
-      Writeln('Угадывает ', CurrPlayer + 1, ' игрок');
+      Writeln('Угадывает ', CurrPlayer+1, ' игрок');
 
-      If CurrPlayer <> NumPlayers - 1 then
-        OwnerPl := CurrPlayer + 1
-      else
-        OwnerPl := 0;
+      IsCorrect := False;
+      While not IsCorrect do
+      Begin
+        //Определение игрока(владельца слова), с которым играет текущий игрок
+        OwnerPl := Random(NumPlayers);
 
-      //Угадывание
-      //+Проверка
-	    IsCorrect := False;
+        //Проверка, может ли текущий игрок играть с этим игроком
+        If (Pos(IntToStr(OwnerPl),Str) <> 0) and (OwnerPl<>CurrPlayer) then
+        Begin
+          IsCorrect := True;
+          Delete(Str, OwnerPl, 1);
+        End;
+
+      End;
+
+      //Угадывание             //+Проверка
+
+	    IsCorrect:= False;
       I := 2;
       Score := 3;
       While (not IsCorrect) and (I <= 4) do
@@ -247,60 +270,43 @@ Begin
 
         Writeln(Words[OwnerPl, I]);
 
-        //Ввод игроком догадки
-        Repeat
-          Write('Введите вашу догадку: ');
-          Readln(Attempt);
-          //Проверка на количество символов в слове
-          If Length(Attempt) < 2 then
-          Begin
-            WriteLn('Слово должнно содержать минимум 2 символа.');
-          End
-        Until Length(Attempt) >= 2;
+        //Ввод догадки
+        Writeln('Введите вашу догадку:');
+        Readln(Attempt);
 
         If Pos(Attempt[1], Alphabet) > 33 then
           Attempt[1] := Alphabet[Pos(Attempt[1], Alphabet) - 33];
+
 
         //Проверка, угадано ли слово
         If Attempt = Words[OwnerPl, 1] then
         Begin
           IsCorrect:=True;
           TempPlayer[CurrPlayer] := TempPlayer[CurrPlayer] + Score;
-          Writeln('Слово угадано!');
-          Writeln('Нажмите Enter, чтобы продолжить...');
-          Readln;
         End
         else
           Dec(Score);
 
         //Проверка, нужно ли начислять/отнимать балл загадывающему
-        If I = 4 then
+        if I = 4 then
         Begin
-          If IsCorrect then
+          if IsCorrect then
             TempPlayer[OwnerPl] := TempPlayer[OwnerPl] + 1
           else
-          Begin
             TempPlayer[OwnerPl] := TempPlayer[OwnerPl] - 1;
-            Writeln('Слово не угадано!');
-            Writeln('Нажмите Enter, чтобы продолжить');
-            Readln;
-          End;
         End;
 
         Inc(I);
       End;
-
       ClrScr;
     End;
 
-    Writeln;
     Writeln('Результаты в текущем раунде:');
 
     For I := 0 to NumPlayers - 1 do
     Begin
       //Вывод результатов в текущем раунде
-      Writeln('  ', I + 1, ' Игрок c баллом: ', TempPlayer[I]);
-
+      Writeln(I+1, 'Игрок - ', TempPlayer[I],' баллов');
       //Занесение его в главный массив очков
       TotalPlayer[0,I] := TotalPlayer[0,I] + TempPlayer[I];
 
@@ -321,13 +327,10 @@ Begin
       Writeln('Промежуточный итог игры:');
 
       For I := 0 to NumPlayers - 1 do
-        Writeln('  ', I + 1, ' Игрок с баллом: ', TotalPlayer[0,I]);
+        Writeln(I+1, 'Игрок - ', TotalPlayer[0,I],' баллов');
     End;
 
     Inc(Round);
-    WriteLn;
-    WriteLn('Нажмите Enter, чтобы продолжить...');
-    ReadLn;
     ClrScr;
   End;
 
@@ -357,15 +360,15 @@ Begin
   I:=0;
   while TotalPlayer[0,I]>=15 do
   Begin
-    Writeln(TotalPlayer[1,I]+1, ' Игрок с баллом: ', TotalPlayer[0,I]);
-    Inc(I);
+    Writeln(TotalPlayer[1,I]+1, 'Игрок с баллом: ', TotalPlayer[0,I]);
+    Inc(i);
   End;
 
   Writeln('Не победители, но все равно молодцы: ');
-  while I <= NumPlayers - 1 do
+  while i<=NumPlayers-1 do
   Begin
-    Writeln(TotalPlayer[1,I] + 1, ' Игрок с баллом: ', TotalPlayer[0,I]);
-    Inc(I);
+    Writeln(TotalPlayer[1,I]+1, 'Игрок с баллом: ', TotalPlayer[0,I]);
+    Inc(i);
   End;
 
   Readln;

@@ -247,16 +247,9 @@ Begin
 
         Writeln(Words[OwnerPl, I]);
 
-        //Ввод игроком догадки
-        Repeat
-          Write('Введите вашу догадку: ');
-          Readln(Attempt);
-          //Проверка на количество символов в слове
-          If Length(Attempt) < 2 then
-          Begin
-            WriteLn('Слово должнно содержать минимум 2 символа.');
-          End
-        Until Length(Attempt) >= 2;
+        //Ввод догадки
+        Writeln('Введите вашу догадку:');
+        Readln(Attempt);
 
         If Pos(Attempt[1], Alphabet) > 33 then
           Attempt[1] := Alphabet[Pos(Attempt[1], Alphabet) - 33];
